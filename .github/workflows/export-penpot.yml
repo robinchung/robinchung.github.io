@@ -1,0 +1,48 @@
+name: Export Penpot Offline Bundle
+
+on:
+  workflow_dispatch: # 允许手动点击触发
+    inputs:
+      version:
+        description: 'Penpot Version (e.g., 2.17.1)'
+        required: true
+        default: '2.17.1'
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest # 使用云端 Linux 环境
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Pull Penpot Images
+        run: |
+          # 这里就是你看到的“Linux命令”部分
+          echo "Pulling Penpot components..."
+          docker pull penpotapp/frontend:${{ inputs.version }}
+          docker pull penpotapp/backend:${{ inputs.version }}
+          docker pull penpotapp/exporter:${{ inputs.version }}
+          docker pull postgres:15
+          docker pull redis:7
+
+      - name: Create Offline Tar Bundle
+        run: |
+          # 将所有镜像打包成一个 .tar 文件
+          echo "Creating offline bundle..."
+          docker save \
+            penpotapp/frontend:${{ inputs.version }} \
+            penpotapp/backend:${{ inputs.version }} \
+            penpotapp/exporter:${{ inputs.version }} \
+            postgres:15 \
+            redis:7 \
+            -o penpot-offline-bundle.tar
+      
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: penpot-offline-bundle-${{ inputs.version }}
+          path: penpot-offline-bundle.tar
+          retention-days: 5
